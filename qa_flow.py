@@ -22,8 +22,8 @@ def handle_query(query):
 
         with st.chat_message("assistant"):
             with st.spinner("正在检索中..."):
-                vector_docs = []
-                bm25_docs = []
+                vector_groups = []
+                bm25_groups = []
                 bm25_retriever = st.session_state.get('bm25_retriever', None)
 
                 sub_queries = decompose_multi_hop(rewritten_query)
@@ -43,13 +43,16 @@ def handle_query(query):
                             query_embeddings=q_emb,
                             n_results=5,
                         )
-                        for i, doc in enumerate(v_res['documents'][0]):
-                            vector_docs.append(Document(
-                                page_content=doc,
-                                metadata=v_res['metadatas'][0][i],
-                            ))
+                        _vec_grp = [
+                            Document(page_content=doc, metadata=v_res['metadatas'][0][i])
+                            for i, doc in enumerate(v_res['documents'][0])
+                        ]
+                        if _vec_grp:
+                            vector_groups.append(_vec_grp)
                         if bm25_retriever is not None:
-                            bm25_docs.extend(bm25_retriever.invoke(search_q))
+                            _bm_grp = list(bm25_retriever.invoke(search_q))
+                            if _bm_grp:
+                                bm25_groups.append(_bm_grp)
 
                         if v_res['documents'][0]:
                             current_context = " ".join([d[:150] for d in v_res['documents'][0][:2]])
@@ -62,33 +65,38 @@ def handle_query(query):
                             query_embeddings=q_emb,
                             n_results=5,
                         )
-                        for i, doc in enumerate(v_res['documents'][0]):
-                            vector_docs.append(Document(
-                                page_content=doc,
-                                metadata=v_res['metadatas'][0][i],
-                            ))
+                        _vec_grp = [
+                            Document(page_content=doc, metadata=v_res['metadatas'][0][i])
+                            for i, doc in enumerate(v_res['documents'][0])
+                        ]
+                        if _vec_grp:
+                            vector_groups.append(_vec_grp)
                         if bm25_retriever is not None:
-                            bm25_docs.extend(bm25_retriever.invoke(q))
+                            _bm_grp = list(bm25_retriever.invoke(q))
+                            if _bm_grp:
+                                bm25_groups.append(_bm_grp)
 
 
-                scores = {}
-                rrf_meta = {}
+                def rrf_fusion(doc_groups_a, doc_groups_b, k=60, top_n=10):
+                    """RRF 融合：每一路检索结果内部各自从 0 计 rank，累加 1/(k+rank+1)。
 
-                def rrf_fusion(docs_a, docs_b, k=60):
-                    for i, doc in enumerate(docs_a):
-                        key = (doc.metadata.get("source", ""), doc.metadata.get("page", 0),
-                               doc.metadata.get("parent_id", ""), doc.page_content[:80])
-                        scores[key] = scores.get(key, 0) + 1 / (k + i + 1)
-                        rrf_meta[key] = doc
-                    for i, doc in enumerate(docs_b):
-                        key = (doc.metadata.get("source", ""), doc.metadata.get("page", 0),
-                               doc.metadata.get("parent_id", ""), doc.page_content[:80])
-                        scores[key] = scores.get(key, 0) + 1 / (k + i + 1)
-                        rrf_meta[key] = doc
-                    sorted_keys = sorted(scores.keys(), key=lambda k: scores[k], reverse=True)[:10]
-                    return [rrf_meta[k] for k in sorted_keys]
+                    旧实现把多路结果 extend 成一个长列表后统一 enumerate，
+                    导致第一路第 1 名 rank=0、第二路第 1 名 rank=5、第三路 rank=10，
+                    排名被"属于第几路"污染。这里按路分组，组内重新计 rank。
+                    """
+                    scores = {}
+                    rrf_meta = {}
+                    for groups in (doc_groups_a, doc_groups_b):
+                        for group in groups:
+                            for rank, doc in enumerate(group):
+                                key = (doc.metadata.get("source", ""), doc.metadata.get("page", 0),
+                                       doc.metadata.get("parent_id", ""), doc.page_content[:80])
+                                scores[key] = scores.get(key, 0) + 1 / (k + rank + 1)
+                                rrf_meta[key] = doc
+                    sorted_keys = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)[:top_n]
+                    return [rrf_meta[key] for key in sorted_keys]
 
-                rrf_docs = rrf_fusion(vector_docs, bm25_docs)
+                rrf_docs = rrf_fusion(vector_groups, bm25_groups)
 
                 top_score = 0.0
                 top_children = []
