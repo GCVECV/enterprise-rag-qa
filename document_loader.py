@@ -4,6 +4,7 @@ import pdfplumber
 import docx2txt
 import streamlit as st
 from config import HISTORY_FILE
+from table_parser import page_body_and_tables
 
 
 def save_history():
@@ -21,8 +22,12 @@ def parse_uploaded_file(uploaded_file):
         if uploaded_file.name.endswith('.pdf'):
             with pdfplumber.open(uploaded_file) as pdf:
                 for page_num, page in enumerate(pdf.pages):
-                    text = page.extract_text()
-                    if text:
+                    # 表格单独结构化：表头：值 逐行渲染，并从正文里剔除表格区域避免重复
+                    body, tbl = page_body_and_tables(page)
+                    text = body
+                    if tbl:
+                        text = (body + "\n【表格】\n" + tbl) if body.strip() else ("【表格】\n" + tbl)
+                    if text.strip():
                         page_texts.append({"page": page_num + 1, "text": text})
         elif uploaded_file.name.endswith(".docx"):
             text = docx2txt.process(io.BytesIO(uploaded_file.read()))

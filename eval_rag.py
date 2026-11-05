@@ -41,6 +41,8 @@ from langchain_community.retrievers import BM25Retriever
 import chromadb
 from sentence_transformers import SentenceTransformer
 
+from table_parser import page_body_and_tables
+
 # ==================== 配置区 ====================
 DOC_DIR = os.path.dirname(os.path.abspath(__file__))
 QUIZ_PATH = os.path.join(DOC_DIR, "RAG测评题库60.json")
@@ -82,8 +84,12 @@ def parse_file(path):
         if name.lower().endswith(".pdf"):
             with pdfplumber.open(path) as pdf:
                 for page_num, page in enumerate(pdf.pages):
-                    text = page.extract_text()
-                    if text:
+                    # 表格单独结构化：表头：值 逐行渲染，并从正文里剔除表格区域避免重复
+                    body, tbl = page_body_and_tables(page)
+                    text = body
+                    if tbl:
+                        text = (body + "\n【表格】\n" + tbl) if body.strip() else ("【表格】\n" + tbl)
+                    if text.strip():
                         page_texts.append((page_num + 1, text))
         elif name.lower().endswith(".docx"):
             text = docx2txt.process(path)
@@ -286,10 +292,71 @@ def backtrace_parents(children, parents_collection):
         return [Document(page_content=id2doc[pid][0], metadata={**id2doc[pid][1], "parent_id": pid}) for pid in parent_ids if pid in id2doc]
     except Exception: return []
 
-def retrieve(query, collection, parents_collection, bm25, model, mode="hybrid", history=None):
-    rerank_mode = mode in RERANK_MODES
-    q = rewrite_query(query, history) if mode == "full" else query
+def _norm_text(s):
+    return re.sub(r"\s+", "", s or "")
 
+def eval_recall_mrr(anchors_path, collection, parents_collection, bm25, model, k=5, mode="full"):
+    """检索级指标：Top-k 父块（回填后）是否含该题标注的证据锚点（来源 + 页 + 页内唯一短语）。
+
+    只看检索这一环，不经过 LLM 生成，因此与端到端通过率是两个口径。
+    hit_rank=0 表示 Top-k 内没有任何父块同时满足 "同来源 + 同页 + 含锚点短语"。
+    """
+    with open(anchors_path, encoding="utf-8") as f:
+        data = json.load(f)
+    items = data["anchors"] if isinstance(data, dict) else data
+
+    rows = []
+    for a in items:
+        q = rewrite_query(a["question"], None) if mode == "full" else a["question"]
+        vec_groups, bm25_groups = gather_groups(q, collection, bm25, model, mode)
+        fused = rrf_fusion(vec_groups, bm25_groups, top_n=max(k * 4, RRF_TOP_K))
+        parents = backtrace_parents(fused, parents_collection) if fused else []
+        anchor = _norm_text(a["anchor"])
+        hit_rank = 0
+        for i, doc in enumerate(parents[:k], 1):
+            if (doc.metadata.get("source") == a["source"]
+                    and doc.metadata.get("page") == a["page"]
+                    and anchor in _norm_text(doc.page_content)):
+                hit_rank = i
+                break
+        rows.append({"id": a["id"], "type": a.get("type", ""), "hit_rank": hit_rank})
+    return rows
+
+def print_recall_mrr(rows, k=5):
+    if not rows:
+        print("无锚点数据")
+        return
+    print("\n" + "=" * 66)
+    print(f" 检索级指标（Top{k} 回填父块后按 来源+页+唯一短语 判定）")
+    print("=" * 66)
+    by_type = collections.defaultdict(list)
+    for r in rows:
+        by_type[r["type"] or "unknown"].append(r)
+
+    def _stat(rs):
+        recall = sum(1 for r in rs if r["hit_rank"] > 0) / len(rs)
+        mrr = sum((1.0 / r["hit_rank"]) if r["hit_rank"] > 0 else 0.0 for r in rs) / len(rs)
+        return recall, mrr
+
+    print(f"{'题型':<10} | {'题数':<3} | {'Recall@' + str(k):<9} | {'MRR':<6}")
+    print("-" * 66)
+    all_rows = []
+    for t, rs in sorted(by_type.items()):
+        all_rows.extend(rs)
+        recall, mrr = _stat(rs)
+        print(f"{t:<10} | {len(rs):<3} | {recall * 100:>7.1f}% | {mrr:>6.3f}")
+    recall, mrr = _stat(all_rows)
+    print("-" * 66)
+    print(f"{'合计':<10} | {len(all_rows):<3} | {recall * 100:>7.1f}% | {mrr:>6.3f}")
+    misses = [r["id"] for r in all_rows if r["hit_rank"] == 0]
+    if misses:
+        print(f"\nTop{k} 未命中：{', '.join(misses)}")
+
+def gather_groups(q, collection, bm25, model, mode="hybrid"):
+    """构造检索路：full 模式先试多跳迭代，否则走查询变体；返回按路分组的向量/BM25 结果。
+
+    与 retrieve() 共用同一段取数逻辑，供 Recall@5 / MRR 评测复用，避免两套实现漂移。
+    """
     vec_groups, bm25_groups = [], []
     # 【修复：镜像 app-8 多跳迭代检索】full 模式优先尝试多跳分解 + 迭代检索，
     # 把上一步检索结果作为"已知前置信息"拼入下一步；非多跳才走查询变体多路检索
@@ -317,6 +384,14 @@ def retrieve(query, collection, parents_collection, bm25, model, mode="hybrid", 
             _bm = [(d, 0.0) for d in bm25.invoke(qq)]
             if _bm:
                 bm25_groups.append(_bm)
+    return vec_groups, bm25_groups
+
+
+def retrieve(query, collection, parents_collection, bm25, model, mode="hybrid", history=None):
+    rerank_mode = mode in RERANK_MODES
+    q = rewrite_query(query, history) if mode == "full" else query
+
+    vec_groups, bm25_groups = gather_groups(q, collection, bm25, model, mode)
     first_dist = vec_groups[0][0][1] if (vec_groups and vec_groups[0]) else 999.0
 
     if mode == "vector":
@@ -499,6 +574,8 @@ def main():
     ap.add_argument("--report", default=None)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--quiz", default=QUIZ_PATH)
+    ap.add_argument("--recall", default=None, help="证据锚点 JSON 路径：只算 Recall@k / MRR，不跑生成")
+    ap.add_argument("--recall-k", type=int, default=5, help="检索级指标的 k，默认 5")
     args = ap.parse_args()
 
     load_env()
@@ -524,6 +601,11 @@ def main():
 
     # 建库
     collection, parents, _, bm25, model, _ = build_index(args.doc_dir, args.files)
+
+    if args.recall:
+        rows = eval_recall_mrr(args.recall, collection, parents, bm25, model, k=args.recall_k)
+        print_recall_mrr(rows, k=args.recall_k)
+        return
 
     if not args.compare:
         res = run_eval(args.retriever, quiz, collection, parents, bm25, model, require_source, mode=args.mode)
