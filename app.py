@@ -125,9 +125,15 @@ if 'parents_collection' not in st.session_state:
 if 'all_docs' not in st.session_state:
     st.session_state.all_docs = []
 
+@st.cache_resource(show_spinner=False)
+def _load_embedding_model():
+    """进程级单例：多个浏览器会话共用同一个向量模型，避免每次新会话重复加载。"""
+    return SentenceTransformer('BAAI/bge-small-zh-v1.5')
+
+
 if 'model' not in st.session_state:
     with st.spinner("正在加载向量模型 bge-small-zh-v1.5 ..."):
-        st.session_state.model = SentenceTransformer('BAAI/bge-small-zh-v1.5')
+        st.session_state.model = _load_embedding_model()
 
 if "bm25_retriever" not in st.session_state:
     st.session_state.bm25_retriever = None
