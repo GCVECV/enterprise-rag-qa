@@ -6,6 +6,9 @@
 # 运行时产物（含知识库全文与对话记录，严禁入库）
 chroma_db/
 chat_history.json
+streamlit_ui.log
+streamlit_ui.err.log
+streamlit_ui.pid
 
 # Python
 __pycache__/

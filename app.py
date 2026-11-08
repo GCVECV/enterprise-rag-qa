@@ -16,92 +16,164 @@ st.set_page_config(page_title="企业智能服务台", page_icon="👔", layout=
 _CSS = """
 <style>
 :root{
-  --ink:#12232b; --ink-soft:#4a5c66; --line:#e3e8ee;
-  --brand:#0f4c5c; --brand-soft:#e7f1f2; --accent:#c98a2e;
-  --surface:#ffffff; --canvas:#f6f8f9;
+  --brand:#0d4f5c; --brand-deep:#083c46; --brand-soft:#e9f3f4; --brand-line:#cfe2e5;
+  --accent:#b8842f;
+  --ink:#16262e; --muted:#5d7078; --faint:#93a4ac;
+  --line:#e6ebee; --surface:#ffffff; --canvas:#f7f9fa;
 }
 html, body, [data-testid="stAppViewContainer"]{
-  background:var(--canvas);
-  color:var(--ink);
-  font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Source Han Sans SC",sans-serif;
+  background:var(--canvas); color:var(--ink);
+  font-family:"Inter","PingFang SC","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
 }
-[data-testid="stHeader"]{background:transparent;}
-[data-testid="stToolbar"]{visibility:hidden;}
-[data-testid="stSidebar"]{
-  background:var(--surface);
-  border-right:1px solid var(--line);
-}
-[data-testid="stSidebar"] *{font-size:14px;}
-.block-container{padding-top:2.4rem; padding-bottom:7rem; max-width:820px;}
+[data-testid="stHeader"]{background:transparent; border-bottom:none;}
+[data-testid="stToolbar"], [data-testid="stDecoration"], [data-testid="stStatusWidget"]{display:none;}
+#MainMenu, footer{visibility:hidden;}
+.block-container{max-width:780px; padding:2.1rem 1.5rem 8rem;}
 
+/* 顶部主卡 */
 .hero{
-  padding:26px 30px 24px; border-radius:16px; color:#fff;
-  background:linear-gradient(135deg,#0f4c5c 0%,#14606f 58%,#1d7381 100%);
-  box-shadow:0 10px 24px rgba(15,76,92,.18);
+  background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:24px 26px 20px;
+  box-shadow:inset 0 3px 0 var(--brand), 0 1px 2px rgba(16,38,46,.03), 0 14px 30px -24px rgba(16,38,46,.55);
 }
-.hero .kicker{font-size:11px; letter-spacing:2.4px; opacity:.72; text-transform:uppercase;}
-.hero h1{margin:8px 0 6px; font-size:30px; font-weight:700; letter-spacing:.5px;}
-.hero p{margin:0; font-size:14px; line-height:1.7; opacity:.9;}
-.hero .rule{width:46px; height:3px; background:var(--accent); border-radius:2px; margin:14px 0 12px; opacity:.95;}
-
-.chips{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 4px;}
-.chip{
-  font-size:12px; padding:6px 11px; border-radius:999px;
-  background:var(--surface); border:1px solid var(--line); color:var(--ink-soft);
+.hero .eyebrow{
+  display:flex; align-items:center; gap:9px;
+  font-size:10.5px; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--brand); font-weight:600;
 }
-.chip b{color:var(--brand); font-weight:600;}
-
-.panel{
-  background:var(--surface); border:1px solid var(--line); border-radius:14px;
-  padding:18px 20px; margin:10px 0; box-shadow:0 1px 3px rgba(18,35,43,.04);
+.hero .eyebrow::before{content:""; width:18px; height:2px; background:var(--accent); border-radius:1px;}
+.hero h1{margin:13px 0 9px; font-size:30px; line-height:1.25; font-weight:700; letter-spacing:.01em;}
+.hero .lede{margin:0; max-width:58ch; font-size:13.5px; line-height:1.85; color:var(--muted);}
+.hero-stats{
+  display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px; margin-top:20px; padding-top:18px; border-top:1px solid var(--line);
 }
-.panel h3{margin:0 0 6px; font-size:15px; color:var(--brand); font-weight:600;}
-.panel p{margin:0; font-size:13px; line-height:1.75; color:var(--ink-soft);}
+.hero-stat .v{font-size:19px; font-weight:700; color:var(--brand); line-height:1.2;}
+.hero-stat .l{font-size:10.5px; color:var(--muted); margin-top:3px;}
 
-.kbstat{display:flex; gap:10px; margin:8px 0 4px;}
-.kbstat div{
-  flex:1; background:var(--brand-soft); border-radius:10px; padding:10px 12px; text-align:center;
+/* 技术栈标签 */
+.stack{display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin:16px 1px 0;}
+.stack .cap{font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-right:2px;}
+.tag{font-size:12px; color:var(--muted); background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:5px 11px;}
+.tag b{color:var(--ink); font-weight:600;}
+
+/* 知识库状态 */
+.status{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted); margin:15px 2px 0;}
+.status .dot{width:7px; height:7px; border-radius:50%; background:var(--accent);}
+.status.ok .dot{background:#2f8a6b;}
+
+/* 小标题 */
+.sec{font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); margin:24px 2px 9px;}
+
+/* 示例问法 */
+.examples{display:grid; gap:9px; margin-bottom:2px;}
+.ex-card{
+  display:flex; gap:14px; align-items:flex-start;
+  background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:13px 15px;
 }
-.kbstat .v{font-size:20px; font-weight:700; color:var(--brand); line-height:1.2;}
-.kbstat .l{font-size:11px; color:var(--ink-soft); margin-top:2px;}
-
-.note{font-size:12px; color:var(--ink-soft); line-height:1.7; margin-top:-4px;}
+.ex-card .no{font-size:10.5px; font-weight:700; color:var(--accent); letter-spacing:.06em; padding-top:3px;}
+.ex-card .q{font-size:13.5px; color:var(--ink); line-height:1.6;}
+.ex-card .meta{font-size:11px; color:var(--muted); margin-top:4px;}
 
 /* 会话气泡 */
 [data-testid="stChatMessage"]{
-  background:var(--surface); border:1px solid var(--line); border-radius:14px;
-  padding:14px 18px; margin:8px 0; box-shadow:0 1px 3px rgba(18,35,43,.04);
+  background:var(--surface); border:1px solid var(--line); border-radius:12px;
+  padding:13px 17px; margin:7px 0; box-shadow:none;
 }
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]),
 [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]){
-  background:#e8f1f3; border-color:#d3e3e6;
+  background:var(--brand-soft); border-color:var(--brand-line);
+  margin-left:12%; width:88%;
 }
-[data-testid="stChatMessage"] p{font-size:14px; line-height:1.8;}
-[data-testid="stChatMessage"] code{
-  background:#f1f4f6; border-radius:6px; padding:1px 5px; font-size:13px;
-}
+[data-testid^="stChatMessageAvatar"]{display:none;}
+[data-testid="stChatMessage"] p{font-size:13.5px; line-height:1.85; margin:0 0 .55em;}
+[data-testid="stChatMessage"] p:last-child{margin-bottom:0;}
+[data-testid="stChatMessage"] code{background:#f2f5f7; border:1px solid var(--line); border-radius:5px; padding:1px 5px; font-size:12.5px;}
+[data-testid="stChatMessage"] ul, [data-testid="stChatMessage"] ol{margin:.3em 0 .6em; padding-left:1.2em;}
+[data-testid="stChatMessage"] li{font-size:13.5px; line-height:1.8;}
 
 /* 按钮 */
 .stButton > button{
   width:100%; border-radius:10px; border:1px solid var(--line);
-  background:var(--surface); color:var(--ink); font-size:13px;
-  padding:9px 12px; justify-content:center; transition:all .15s ease; box-shadow:none;
+  background:var(--surface); color:var(--ink); font-size:12.5px; font-weight:500;
+  padding:8px 12px; justify-content:center; transition:border-color .15s, color .15s, background .15s; box-shadow:none;
 }
-.stButton > button:hover{border-color:var(--brand); color:var(--brand); background:#fbfcfc;}
-.stButton > button [data-testid="stMarkdownContainer"]{width:100%; text-align:center;}
-.stButton > button[kind="primary"]{
-  background:var(--brand); color:#fff; border-color:var(--brand);
+.stButton > button:hover{border-color:var(--brand); color:var(--brand); background:#fff;}
+.stButton > button[kind="primary"], .stButton > button[data-testid="stBaseButton-primary"]{
+  background:var(--brand); border-color:var(--brand); color:#fff; font-weight:600;
 }
-.stButton > button[kind="primary"]:hover{background:#0d4351; border-color:#0d4351; color:#fff;}
+.stButton > button[kind="primary"]:hover, .stButton > button[data-testid="stBaseButton-primary"]:hover{
+  background:var(--brand-deep); border-color:var(--brand-deep); color:#fff;
+}
 
-/* 输入框 */
+/* 侧边栏 */
+[data-testid="stSidebar"]{background:var(--surface); border-right:1px solid var(--line);}
+[data-testid="stSidebar"] *{font-size:12.5px;}
+[data-testid="stSidebar"] h3{font-size:13px; font-weight:600; letter-spacing:.01em; margin:2px 0 10px;}
+[data-testid="stSidebar"] hr{margin:16px 0; border-color:var(--line);}
+.kb-head{display:flex; align-items:center; gap:10px; margin:4px 0 15px;}
+.kb-head .mark{
+  width:30px; height:30px; border-radius:8px; background:var(--brand); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;
+}
+.kb-head .t{font-size:13px; font-weight:600; color:var(--ink); line-height:1.25;}
+.kb-head .s{font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); margin-top:2px;}
+.kbstat{
+  display:grid; grid-template-columns:1fr 1fr;
+  border:1px solid var(--line); border-radius:11px; overflow:hidden; background:var(--surface);
+}
+.kbstat > div{padding:11px 14px;}
+.kbstat > div + div{border-left:1px solid var(--line);}
+.kbstat .v{font-size:18px; font-weight:700; color:var(--brand); line-height:1.15;}
+.kbstat .l{font-size:10.5px; color:var(--muted); margin-top:3px;}
+.note{font-size:12px; color:var(--muted); line-height:1.7;}
+[data-testid="stFileUploaderDropzone"]{background:#fbfcfd; border:1px dashed #d5dee3; border-radius:10px; padding:12px;}
+[data-testid="stFileUploaderDropzone"] p, [data-testid="stFileUploaderDropzone"] small{font-size:11.5px;}
+[data-testid="stExpander"]{border:1px solid var(--line); border-radius:10px; background:var(--surface);}
+[data-testid="stExpander"] summary{font-size:12px; padding:8px 12px;}
+
+/* 快捷提问 */
+[data-testid="stButtonGroup"]{gap:8px; row-gap:8px;}
+[data-testid="stButtonGroup"] button{
+  border-radius:999px; border:1px solid var(--line); background:var(--surface);
+  color:var(--muted); font-size:12.5px; padding:6px 14px; box-shadow:none;
+}
+[data-testid="stButtonGroup"] button:hover{border-color:var(--brand); color:var(--brand);}
+[data-testid="stButtonGroup"] button[aria-checked="true"],
+[data-testid="stButtonGroup"] button[aria-pressed="true"],
+[data-testid="stButtonGroup"] button[kind="pillsActive"]{
+  background:var(--brand-soft); border-color:var(--brand-line); color:var(--brand); font-weight:600;
+}
+
+/* 输入区 */
+[data-testid="stBottom"]{background:transparent;}
+[data-testid="stBottom"] > div{background:linear-gradient(180deg, rgba(247,249,250,0) 0%, var(--canvas) 36%); padding-bottom:.5rem;}
 [data-testid="stChatInput"]{
-  border-top:1px solid var(--line); padding-top:12px; background:var(--canvas);
+  max-width:780px; margin:0 auto; background:var(--surface);
+  border:1px solid var(--line); border-radius:14px;
+  box-shadow:0 12px 26px -22px rgba(16,38,46,.8);
 }
-[data-testid="stChatInput"] textarea{font-size:14px;}
-[data-testid="stFileUploader"]{border-radius:12px;}
-[data-testid="stPills"] button{border-radius:999px; font-size:13px; padding:7px 14px;}
+[data-testid="stChatInput"] > div{border:none; background:transparent;}
+[data-testid="stChatInput"] textarea{font-size:13.5px; padding:12px 14px;}
+[data-testid="stChatInput"]:focus-within{border-color:var(--brand); box-shadow:0 0 0 3px rgba(13,79,92,.08);}
+[data-testid="stChatInputSubmitButton"]{
+  background:var(--brand); color:#fff; border-radius:50%;
+  width:32px; height:32px; min-width:32px; margin:6px 8px 6px 0;
+}
+[data-testid="stChatInputSubmitButton"]:hover{background:var(--brand-deep); color:#fff;}
+[data-testid="stChatInputSubmitButton"] svg{fill:#fff; stroke:#fff;}
 
-#MainMenu, footer{visibility:hidden;}
+/* 窄屏 */
+@media (max-width:640px){
+  .block-container{padding:1.4rem 1rem 7rem;}
+  .hero{padding:19px 18px 16px;}
+  .hero h1{font-size:23px;}
+  .hero .lede{font-size:12.5px;}
+  .hero-stats{grid-template-columns:1fr 1fr; gap:12px 10px;}
+  .hero-stat .v{font-size:17px;}
+  [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]){margin-left:0; width:100%;}
+}
 </style>
 """
 st.markdown(_CSS, unsafe_allow_html=True)
@@ -170,20 +242,28 @@ _kb_sources = len({
 
 # ---------------- 侧边栏 ----------------
 with st.sidebar:
-    st.markdown("### 文档管理")
+    st.markdown(
+        """
+<div class="kb-head">
+  <div class="mark">KB</div>
+  <div><div class="t">知识库</div><div class="s">Knowledge base</div></div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
     st.markdown(
         f"""
 <div class="kbstat">
-  <div><div class="v">{_kb_blocks}</div><div class="l">已入库子块</div></div>
+  <div><div class="v">{_kb_blocks}</div><div class="l">已入库片段</div></div>
   <div><div class="v">{_kb_sources}</div><div class="l">来源文档</div></div>
 </div>
 """,
         unsafe_allow_html=True,
     )
     if _kb_blocks:
-        st.markdown('<div class="note">知识库已就绪，可直接提问。</div>', unsafe_allow_html=True)
+        st.markdown('<div class="status ok"><span class="dot"></span>已就绪，可直接提问</div>', unsafe_allow_html=True)
     else:
-        st.markdown('<div class="note">知识库为空，请先上传制度文档。</div>', unsafe_allow_html=True)
+        st.markdown('<div class="status"><span class="dot"></span>为空，先上传制度文档</div>', unsafe_allow_html=True)
 
     uploaded_files = st.file_uploader(
         "上传制度文档",
@@ -193,7 +273,7 @@ with st.sidebar:
     )
     if uploaded_files:
         st.markdown(
-            f'<div class="note">已选择 {len(uploaded_files)} 个文件，解析后按 1200 字父块 / 250 字子块入库。</div>',
+            f'<div class="note">已选 {len(uploaded_files)} 个文件，按 1200 字父块 / 250 字子块入库。</div>',
             unsafe_allow_html=True,
         )
         if st.button("开始解析并存入数据库", type="primary"):
@@ -231,10 +311,15 @@ with st.sidebar:
 st.markdown(
     """
 <div class="hero">
-  <div class="kicker">Enterprise Knowledge Assistant</div>
-  <h1>企业智能服务台</h1>
-  <div class="rule"></div>
-  <p>面向制度与流程文档的检索增强问答。命中给出出处，资料不足时明确拒答，不靠常识补编。</p>
+  <div class="eyebrow">Enterprise Knowledge Assistant</div>
+  <h1>企业制度问答</h1>
+  <p class="lede">面向员工手册、考勤休假与信息安全制度的检索增强问答。回答回溯到条款与页码，资料不足时明确拒答，不用常识补编。</p>
+  <div class="hero-stats">
+    <div class="hero-stat"><div class="v">60/60</div><div class="l">开发集回归</div></div>
+    <div class="hero-stat"><div class="v">213/240</div><div class="l">独立集通过</div></div>
+    <div class="hero-stat"><div class="v">40/40</div><div class="l">拒答准确</div></div>
+    <div class="hero-stat"><div class="v">0.796</div><div class="l">检索 MRR@3</div></div>
+  </div>
 </div>
 """,
     unsafe_allow_html=True,
@@ -242,38 +327,47 @@ st.markdown(
 
 st.markdown(
     """
-<div class="chips">
-  <span class="chip">Embedding <b>bge-small-zh-v1.5</b></span>
-  <span class="chip">Rerank <b>bge-reranker-base</b></span>
-  <span class="chip">生成 <b>deepseek-chat</b></span>
-  <span class="chip">检索 <b>向量 + BM25 + RRF</b></span>
-  <span class="chip">拒答 <b>阈值 + 向量距离双信号</b></span>
+<div class="stack">
+  <span class="cap">实现</span>
+  <span class="tag">向量 <b>bge-small-zh-v1.5</b></span>
+  <span class="tag">重排 <b>bge-reranker-base</b></span>
+  <span class="tag">生成 <b>deepseek-chat</b></span>
+  <span class="tag">检索 <b>向量 + BM25 + RRF</b></span>
+  <span class="tag">拒答 <b>阈值 + 向量距离双信号</b></span>
 </div>
 """,
     unsafe_allow_html=True,
 )
 
+if _kb_blocks:
+    st.markdown(
+        f'<div class="status ok"><span class="dot"></span>知识库 {_kb_blocks} 个片段 · {_kb_sources} 份文档，可直接提问</div>',
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        '<div class="status"><span class="dot"></span>知识库为空：先在左侧上传三份制度文档，再开始提问</div>',
+        unsafe_allow_html=True,
+    )
+
 if not st.session_state.messages:
     st.markdown(
         """
-<div class="panel">
-  <h3>先问一个具体问题</h3>
-  <p>制度类问题最好带上主体和条件，例如"入职满一年、累计工作 3 年，年假几天"。
-  命中条款会标注来源与页码；知识库里没有的内容会直接说明未收录，不会自行编造。</p>
+<div class="sec">示例问法</div>
+<div class="examples">
+  <div class="ex-card"><div class="no">01</div><div><div class="q">入职满一年、累计工作 3 年，年假有几天？</div><div class="meta">多跳推理 · 需要跨条款拼条件</div></div></div>
+  <div class="ex-card"><div class="no">02</div><div><div class="q">出差住宿的报销上限是多少？</div><div class="meta">表格抽取 · 附录里的结构化数据</div></div></div>
+  <div class="ex-card"><div class="no">03</div><div><div class="q">把客户资料发到私人邮箱算违规吗？</div><div class="meta">信息安全条款 · 需要引用原文判断</div></div></div>
 </div>
 """,
         unsafe_allow_html=True,
     )
 
 for message in st.session_state.messages:
-    avatar = "🧑" if message["role"] == "user" else "🏛️"
-    with st.chat_message(message["role"], avatar=avatar):
+    with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-st.markdown(
-    '<div class="note" style="margin:18px 0 6px;">常见问题：</div>',
-    unsafe_allow_html=True,
-)
+st.markdown('<div class="sec">快捷提问</div>', unsafe_allow_html=True)
 
 _QUICK_QUESTIONS = ["出差报销标准是多少？", "怎么连公司 VPN？", "年假怎么计算？"]
 
