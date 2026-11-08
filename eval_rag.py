@@ -373,8 +373,9 @@ def gather_groups(q, collection, bm25, model, mode="hybrid"):
             if _bm:
                 bm25_groups.append(_bm)
             if _vec:
-                # 保持原语义：沿用本步检索结果的后两条作为下一步的前置信息（该处疑似 bug，单独记录，本次不改）
-                current_context = " ".join(d.page_content[:150] for d, _ in _vec[-2:])
+                # 与 app 侧 qa_flow.py 对齐：取本步排名前 2 的片段作为下一步的前置线索。
+                # 旧实现取 _vec[-2:]（排名最后两条），检索质量最差，等于把噪声喂给下一步。
+                current_context = " ".join(d.page_content[:150] for d, _ in _vec[:2])
     else:
         queries = generate_query_variants(q) if mode == "full" else [q]
         for qq in queries:
